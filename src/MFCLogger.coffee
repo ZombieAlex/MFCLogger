@@ -289,15 +289,12 @@ class Logger
                 format = if newstate > oldstate then @rankDown else @rankUp
                 @log2 "#{model.nm} camscore is now #{newState}", model.nm, format
     viewerLogger: (packet) -> # @TODO - Test this out, also need to hook it up to options so that people can opt in to this
-        #@TODO - @BUGBUG - This is definitely incomplete.  Need to join the room like chatLogger, etc
-        #@TODO - Also log guest viewer count like chatMon.js, can do it in this same function and just switch on the packet's FCType, JOINCHAN for members, GUESTCOUNT for guests
-        #       just need to add an event listenver for guestcount and add the switch here
-        if packet.FCType == @MyFreeCams.FCTYPE.GUESTCOUNT
-            @log2 "Guest viewer count is now #{packet.nArg1}", packet.aboutModel.nm
-            return
-
         #Otherwise this packet must be a JOINCHAN, a notification of a member (whether basic or premium) entering or leaving the room
         if packet?.aboutModel?.logState?.viewers
+            if packet.FCType == @MyFreeCams.FCTYPE.GUESTCOUNT
+                @log2 "Guest viewer count is now #{packet.nArg1}", packet.aboutModel.nm
+                return
+
             switch packet.nArg2
                 when 1 #This user joined the channel and I think (but haven't verified) we always get a semi-full user object describing this user in sMessage
                     #userHash[packet.aboutModel.uid][packet.nFrom] = packet.sMessage; //Add this user to the model's room list, so we can look up their name when they leave...
