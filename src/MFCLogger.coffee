@@ -152,7 +152,7 @@ class Logger
                 if (@setState val, "chat", true) #If we're not already logging this model's chat
                     @MyFreeCams.Model.getModel(val).on "vs", (model,oldState,newState) =>
                         if newState isnt @MyFreeCams.STATE.Offline
-                            @joinRoom @MyFreeCams.Model.getModel(id)
+                            @joinRoom model
             when "object"
                 for own k,v of val
                     console.assert typeof v is "function", "Don't know how to log chat for #{v}"
@@ -170,7 +170,7 @@ class Logger
                 if (@setState val, "tips", true)
                     @MyFreeCams.Model.getModel(val).on "vs", (model,oldState,newState) =>
                         if newState isnt @MyFreeCams.STATE.Offline
-                            @joinRoom @MyFreeCams.Model.getModel(id)
+                            @joinRoom model
             when "object"
                 for own k,v of val
                     console.assert typeof v is "function", "Don't know how to log tips for #{v}"
@@ -189,7 +189,7 @@ class Logger
                     @MyFreeCams.Model.getModel(val).on "vs", (model,oldState,newState) =>
                         @stateLogger(model,oldState,newState)
                         if newState isnt @MyFreeCams.STATE.Offline
-                            @joinRoom @MyFreeCams.Model.getModel(id)
+                            @joinRoom model
             when "object"
                 for own k,v of val
                     console.assert typeof v is "function", "Don't know how to log viewers for #{v}"
