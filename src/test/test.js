@@ -1,5 +1,5 @@
 (function() {
-  var Logger, log, opts;
+  var Logger, log, opts, mfc, client;
 
   opts = {
     all: [
@@ -24,10 +24,12 @@
     ]
   };
 
+  mfc = require("MFCAuto");
+  client = new mfc.Client();
   Logger = require("../../lib/MFCLogger.js").Logger;
 
-  log = new Logger(opts);
+  log = new Logger(client, opts);
 
-  log.start();
+  client.connect();
 
 }).call(this);

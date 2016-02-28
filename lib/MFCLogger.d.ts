@@ -53,8 +53,7 @@ declare class Logger {
     private largeTip;
     private rankUp;
     private rankDown;
-    constructor(options: LoggerOptions, ready: any);
-    start(): void;
+    constructor(client: Client, options: LoggerOptions, ready: any);
     logChatFor(val: any): void;
     logTipsFor(val: any): void;
     logViewersFor(val: any): void;

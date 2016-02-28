@@ -51,8 +51,8 @@ class Logger {
     private rankUp = color.bgCyan.black;
     private rankDown = color.bgRed.white;
 
-    constructor(options: LoggerOptions, ready){
-        this.client = new MyFreeCams.Client()
+    constructor(client: Client, options: LoggerOptions, ready){
+        this.client = client;
         this.options = options;
         this.ready = ready;
 
@@ -237,14 +237,10 @@ class Logger {
 
         //Hook all rank changes
         MyFreeCams.Model.on("rank", this.rankLogger.bind(this));
-        //@TODO - Probably need a sessionstate callback...or...I don't know, maybe not
 
         if (this.ready!==undefined && options.logmodelids !== true){
             this.ready(this);
         }
-    }
-    start(): void{
-        this.client.connect();
     }
     logChatFor(val){
         //if this is a number, hook that model, if this is a function, hook all models and set up the filter
