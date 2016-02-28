@@ -1,5 +1,5 @@
-/// <reference path="../typings/node/node.d.ts" />
-/// <reference path="../node_modules/MFCAuto/lib/MFCAuto.d.ts" />
+/// <reference path="../../typings/node/node.d.ts" />
+/// <reference path="../../node_modules/MFCAuto/lib/MFCAuto.d.ts" />
 
 /*
 @TODO - switch to using nconf for the configuration?
@@ -264,7 +264,6 @@ class Logger {
                 for (let k in val){
                     let v = val[k];
                     assert2.strictEqual(typeof v, "function", `Don't know how to log chat for ${JSON.stringify(v)}`);
-                    //@log2 "Hooking all models for //{k} with function //{v.toString()}"
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if (callback(model, oldState, newState)){
                             if (this.setState(model.uid, "chat", true)){
@@ -303,6 +302,7 @@ class Logger {
                         }
                     }.bind(this,v));
                 }
+                break;
             default:
                 assert2.fail(`Don't know how to log tips for ${JSON.stringify(val)}`);
         }
@@ -370,6 +370,7 @@ class Logger {
                         }
                     }.bind(this,v));
                 }
+                break;
             default:
                 assert2.fail(`Don't know how to log ${prop} for ${JSON.stringify(val)}`);
         }
@@ -402,14 +403,14 @@ class Logger {
     // Below here are helper methods that log the various messages to the console and log files with some nice formatting
     chatLogger(packet){
         if (packet.aboutModel.logState !== undefined &&
-            packet.aboutModel.logState.chat !== true &&
+            packet.aboutModel.logState.chat === true &&
             packet.chatString!==undefined){
             log2(packet.chatString, packet.aboutModel.nm, this.chatFormat);
         }
     }
     tipLogger(packet){
         if (packet.aboutModel.logState !== undefined &&
-            packet.aboutModel.logState.tips !== true &&
+            packet.aboutModel.logState.tips === true &&
             packet.chatString!==undefined){
             let format = this.tinyTip;
             if (packet.sMessage.tokens >= 50){
