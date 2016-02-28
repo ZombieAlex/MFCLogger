@@ -9,33 +9,33 @@ declare let assert2: any;
 declare type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
 interface LoggerOptions {
     logmodelids?: boolean;
-    all: Array<number> | {
+    all: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    nochat: Array<number> | {
+    }>;
+    nochat: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    chat: Array<number> | {
+    }>;
+    chat: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    tips: Array<number> | {
+    }>;
+    tips: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    viewers: Array<number> | {
+    }>;
+    viewers: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    rank: Array<number> | {
+    }>;
+    rank: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    topic: Array<number> | {
+    }>;
+    topic: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    state: Array<number> | {
+    }>;
+    state: Array<number | {
         [index: string]: LoggerFilter;
-    };
-    camscore: Array<number> | {
+    }>;
+    camscore: Array<number | {
         [index: string]: LoggerFilter;
-    };
+    }>;
 }
 declare class Logger {
     private client;

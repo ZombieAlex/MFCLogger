@@ -16,15 +16,15 @@ let assert2 = require("assert");
 type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
 interface LoggerOptions{
     logmodelids?: boolean;
-    all: Array<number> | {[index:string]: LoggerFilter};
-    nochat: Array<number> | {[index:string]: LoggerFilter};
-    chat: Array<number> | {[index:string]: LoggerFilter};
-    tips: Array<number> | {[index:string]: LoggerFilter};
-    viewers: Array<number> | {[index:string]: LoggerFilter};
-    rank: Array<number> | {[index:string]: LoggerFilter};
-    topic: Array<number> | {[index:string]: LoggerFilter};
-    state: Array<number> | {[index:string]: LoggerFilter};
-    camscore: Array<number> | {[index:string]: LoggerFilter};
+    all: Array<number | {[index:string]: LoggerFilter}>;
+    nochat: Array<number | {[index:string]: LoggerFilter}>;
+    chat: Array<number | {[index:string]: LoggerFilter}>;
+    tips: Array<number | {[index:string]: LoggerFilter}>;
+    viewers: Array<number | {[index:string]: LoggerFilter}>;
+    rank: Array<number | {[index:string]: LoggerFilter}>;
+    topic: Array<number | {[index:string]: LoggerFilter}>;
+    state: Array<number | {[index:string]: LoggerFilter}>;
+    camscore: Array<number | {[index:string]: LoggerFilter}>;
 }
 
 class Logger {
@@ -263,7 +263,7 @@ class Logger {
             case "object":
                 for (let k in val){
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log chat for ${v}`);
+                    assert2.strictEqual(typeof v, "function", `Don't know how to log chat for ${JSON.stringify(v)}`);
                     //@log2 "Hooking all models for //{k} with function //{v.toString()}"
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if (callback(model, oldState, newState)){
@@ -275,7 +275,7 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log chat for ${val}`);
+                assert2.fail(`Don't know how to log chat for ${JSON.stringify(val)}`);
         };
     }
     logTipsFor(val){
@@ -293,7 +293,7 @@ class Logger {
             case "object":
                 for (let k in val){
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log tips for ${v}`);
+                    assert2.strictEqual(typeof v, "function", `Don't know how to log tips for ${JSON.stringify(v)}`);
                     //@log2 "Hooking all models for //{k} with function //{v.toString()}"
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if(callback(model, oldState, newState)){
@@ -304,7 +304,7 @@ class Logger {
                     }.bind(this,v));
                 }
             default:
-                assert2.fail(`Don't know how to log tips for ${val}`);
+                assert2.fail(`Don't know how to log tips for ${JSON.stringify(val)}`);
         }
     }
     logViewersFor(val){ //@TODO - collapse these three logViewersFor, logTipsFor, logChatFor functions, they're too common not to share code
@@ -323,7 +323,7 @@ class Logger {
             case "object":
                 for (let k in val){
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log viewers for ${v}`);
+                    assert2.strictEqual(typeof v, "function", `Don't know how to log viewers for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if (callback(model, oldState, newState)){
                             if (this.setState(model.uid, "viewers", true)){
@@ -334,7 +334,7 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log tips for ${val}`);
+                assert2.fail(`Don't know how to log viewers for ${JSON.stringify(val)}`);
         }
     }
     logStateFor(val){
@@ -360,7 +360,7 @@ class Logger {
             case "object":
                 for (let k in val){
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log ${prop} for ${v}`);
+                    assert2.strictEqual(typeof v, "function", `Don't know how to log ${prop} for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if (callback(model, oldState, newState)){
                             if (prop == "truepvt"){ //Minor hack, could clean up later
@@ -371,7 +371,7 @@ class Logger {
                     }.bind(this,v));
                 }
             default:
-                assert2.fail(`Don't know how to log ${prop} for ${val}`);
+                assert2.fail(`Don't know how to log ${prop} for ${JSON.stringify(val)}`);
         }
     }
     setState(id, state, value = true){
