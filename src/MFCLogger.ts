@@ -188,7 +188,7 @@ class Logger {
                         if(!v.hasOwnProperty(model)){
                             continue;
                         }
-                        this.logTipsFor(v[model]);
+                        this.logTopicsFor(v[model]);
                     }
                     break;
                 case "state":
@@ -263,7 +263,7 @@ class Logger {
             case "object":
                 for (let k in val){
                     let v = val[k];
-                    assert2.strictEquals(typeof v, "function", `Don't know how to log chat for ${v}`);
+                    assert2.strictEqual(typeof v, "function", `Don't know how to log chat for ${v}`);
                     //@log2 "Hooking all models for //{k} with function //{v.toString()}"
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState){
                         if (callback(model, oldState, newState)){
