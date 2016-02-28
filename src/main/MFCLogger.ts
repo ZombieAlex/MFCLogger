@@ -424,7 +424,7 @@ class Logger {
     stateLogger(model, oldState, newState){
         if (model.logState !== undefined && model.logState.state === true){
             if(oldState !== newState){ //@TODO - Confirm that this still allows true private states to be logged
-                let statestr = MyFreeCams.STATE[model.vs];
+                let statestr = MyFreeCams.STATE[model.bestSession.vs];
                 if (model.bestSession.truepvt === 1 && model.bestSession.vs === MyFreeCams.STATE.Private){
                     statestr = "True Private"; 
                 }
