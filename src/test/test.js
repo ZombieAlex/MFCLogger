@@ -1,35 +1,40 @@
-(function() {
-  var Logger, log, opts, mfc, client;
+/* jshint node: true, nonstandard: true, esversion: 6, indent: 4, undef: true, unused: true, bitwise: true, eqeqeq: true, latedef: true, trailing: true */
+"use strict";
 
-  opts = {
+let mfc = require("MFCAuto");
+let client = new mfc.Client();
+let Logger = require("../../lib/MFCLogger.js").Logger;
+
+let options = {
+    // Log everything for...
     all: [
-      {
-        camscore: function(model, oldstate, newstate) {
-          return newstate > 8000;
-        },
-        rc: function(model, oldstate, newstate) {
-          return newstate > 1500;
-        },
-        rank: function(model, oldstate, newstate) {
-          return newstate !== 0 && newstate <= 20;
-        }
-      }
+        // AspenRae
+        3111899,
+        // MissMolly
+        11972850
     ],
+    
+    // Log rank changes for...
     rank: [
-      {
-        rank: function(a, b, c) {
-          return c !== 0;
+        // Models whose rank is in the top 250
+        { rank: (model, before, after) => after !== 0 }
+    ],
+    
+    // Log tips received for...
+    tips: [
+        // Models whose rank is in the top 10
+        { rank: (model, before, after) => after !== 0 && after <= 10 }
+    ],
+    
+    // Log topic changes for...
+    topic: [
+        // Models with 'athletic' in their tags and models with 'raffle' in their topic
+        {
+            tags: (model, before, after) => after.findIndex((value) => /athletic/i.test(value)) !== -1,
+            topic: (model, before, after) => /raffle/i.test(after)
         }
-      }
     ]
-  };
+};
 
-  mfc = require("MFCAuto");
-  client = new mfc.Client();
-  Logger = require("../../lib/MFCLogger.js").Logger;
-
-  log = new Logger(client, opts);
-
-  client.connect();
-
-}).call(this);
+let log = new Logger(client, options);
+client.connect();

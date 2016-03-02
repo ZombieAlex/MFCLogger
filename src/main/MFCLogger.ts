@@ -15,16 +15,29 @@ let assert2 = require("assert");
 
 type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
 interface LoggerOptions{
-    logmodelids?: boolean;
+    // Log all of the below, except viewers, for these models
     all: Array<number | {[index:string]: LoggerFilter}>;
+    // Log all of the below, except chat and viewers, for these models
     nochat: Array<number | {[index:string]: LoggerFilter}>;
+    // Log chat and tips for these models
     chat: Array<number | {[index:string]: LoggerFilter}>;
     tips: Array<number | {[index:string]: LoggerFilter}>;
+    // Log guest counts and member names of people entering/leaving
+    // the chat room
     viewers: Array<number | {[index:string]: LoggerFilter}>;
+    // Log rank changes for these models
     rank: Array<number | {[index:string]: LoggerFilter}>;
+    // Log topic changes for these models
     topic: Array<number | {[index:string]: LoggerFilter}>;
+    // Log video state changes for these models
     state: Array<number | {[index:string]: LoggerFilter}>;
+    // Log camscore changes for these models
     camscore: Array<number | {[index:string]: LoggerFilter}>;
+    // For internal use only, stores a mapping of
+    // model ids to model names in a local mongodb.
+    // If that's useful to you and you have a local mongodb,
+    // go for it, otherwise it's just for me (the author)
+    logmodelids?: boolean;
 }
 
 class Logger {

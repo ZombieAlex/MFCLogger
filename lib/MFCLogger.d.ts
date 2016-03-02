@@ -8,7 +8,6 @@ declare let log2: any;
 declare let assert2: any;
 declare type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
 interface LoggerOptions {
-    logmodelids?: boolean;
     all: Array<number | {
         [index: string]: LoggerFilter;
     }>;
@@ -36,6 +35,7 @@ interface LoggerOptions {
     camscore: Array<number | {
         [index: string]: LoggerFilter;
     }>;
+    logmodelids?: boolean;
 }
 declare class Logger {
     private client;
