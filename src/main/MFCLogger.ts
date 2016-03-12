@@ -481,7 +481,7 @@ class Logger {
     }
     camscoreLogger(model, oldState, newState) {
         if (model.logState !== undefined && model.logState.camscore === true) {
-            if (oldState !== undefined && oldState !== newState) {
+            if (oldState !== newState) {
                 let format = newState > oldState ? this.rankDown : this.rankUp;
                 log2(`${model.nm} camscore is now ${newState}`, model.nm, format);
             }
