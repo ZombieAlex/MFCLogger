@@ -1,0 +1,19 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "amd",
+        "declaration": true,
+        "noImplicitAny": false,
+        "outFile": "./lib/MFCLogger.js",
+        "sourceMap": true,
+        "noLib": false,
+        "moduleResolution": "node",
+        "stripInternal": true,
+        "removeComments": true
+    },
+    "files": [
+      "./typings/tsd.d.ts",
+      "./node_modules/MFCAuto/lib/MFCAuto.d.ts",
+      "./src/main/MFCLogger.ts"
+    ]
+}

@@ -1,16 +1,18 @@
-/// <reference path="../../typings/node/node.d.ts" />
 /// <reference path="../../node_modules/MFCAuto/lib/MFCAuto.d.ts" />
-
-/*
-@TODO - switch to using nconf for the configuration?
-*/
-
+/* @internal */
 let fs = require("fs");
-let mongodb = require("mongodb");
+/* @internal */
+let mongodb;
+/* @internal */
 let color = require("cli-color");
+/* @internal */
 let MyFreeCams = require("MFCAuto");
+/* @internal */
 let log2 = MyFreeCams.log;
-let assert2 = require("assert");
+/* @internal */
+let assert = require("assert");
+/* @internal */
+let moment = require("moment");
 
 
 type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
@@ -21,6 +23,7 @@ interface LoggerOptions {
     nochat: Array<number | { [index: string]: LoggerFilter }>;
     // Log chat and tips for these models
     chat: Array<number | { [index: string]: LoggerFilter }>;
+    // Log tips but not chat for these models
     tips: Array<number | { [index: string]: LoggerFilter }>;
     // Log guest counts and member names of people entering/leaving
     // the chat room
@@ -40,6 +43,23 @@ interface LoggerOptions {
     logmodelids?: boolean;
 }
 
+/* @internal */
+interface LoggedModel extends Model {
+    __haveJoinedRoom?: boolean;
+    logState: {
+        chat?: boolean;
+        tips?: boolean;
+        viewers?: boolean;
+        state?: boolean;
+        truepvt?: boolean;
+        camscore?: boolean;
+        topic?: boolean;
+        rank?: boolean;
+        lastStateChange?: any;
+        previousStateStr?: string;
+    }
+}
+
 class Logger {
     //Set up basic modules and fields
     private client: Client;
@@ -49,8 +69,8 @@ class Logger {
     /////////////////////////////////////////
     //MongoDB support for recording model IDs
     private MongoClient = mongodb.MongoClient;
-    private database = null;
-    private collection = null;
+    private database: any = null;
+    private collection: any = null;
 
     /////////////////////////////////////////
     //Color formatting
@@ -58,7 +78,7 @@ class Logger {
     private chatFormat = color.bgBlack.white;
     private topicFormat = color.bgBlack.cyan;
     private tinyTip = color.bgBlackBright.black; // <50
-    private smallTip = color.bgWhite.black; // <200, not actually yellow, more of a bold white, but still...
+    private smallTip = color.bgWhite.black; // <200
     private mediumTip = color.bgWhiteBright.black; // >200 and <1000
     private largeTip = color.bgYellowBright.black; // >1000
     private rankUp = color.bgCyan.black;
@@ -82,6 +102,7 @@ class Logger {
             let v = options[k];
             switch (k) {
                 case "logmodelids":
+                    mongodb = require("mongodb");
                     // Mongo shape is {_id: mongoshit, id: <mfcid number>, names: [name1, name2, etc]}
 
                     //Save the db before exiting
@@ -221,7 +242,7 @@ class Logger {
                     }
                     break;
                 default:
-                    assert2.fail(`Unknown option '${k}'`);
+                    assert.fail(`Unknown option '${k}'`);
             }
         };
 
@@ -255,7 +276,7 @@ class Logger {
             this.ready(this);
         }
     }
-    logChatFor(val) {
+    private logChatFor(val) {
         //if this is a number, hook that model, if this is a function, hook all models and set up the filter
         //in either case, record what we're logging on the model object itself (maybe a sub "logState" object)
         switch (typeof val) {
@@ -272,7 +293,7 @@ class Logger {
             case "object":
                 for (let k in val) {
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log chat for ${JSON.stringify(v)}`);
+                    assert.strictEqual(typeof v, "function", `Don't know how to log chat for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState) {
                         if (callback(model, oldState, newState)) {
                             if (this.setState(model.uid, "chat", true)) {
@@ -283,10 +304,10 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log chat for ${JSON.stringify(val)}`);
+                assert.fail(`Don't know how to log chat for ${JSON.stringify(val)}`);
         };
     }
-    logTipsFor(val) {
+    private logTipsFor(val) {
         switch (typeof val) {
             case "number":
                 //Join the room and add a tracker to the model logState object so that tipLogger knows to log for this model
@@ -301,8 +322,7 @@ class Logger {
             case "object":
                 for (let k in val) {
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log tips for ${JSON.stringify(v)}`);
-                    //@log2 "Hooking all models for //{k} with function //{v.toString()}"
+                    assert.strictEqual(typeof v, "function", `Don't know how to log tips for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState) {
                         if (callback(model, oldState, newState)) {
                             if (this.setState(model.uid, "tips", true)) {
@@ -313,10 +333,10 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log tips for ${JSON.stringify(val)}`);
+                assert.fail(`Don't know how to log tips for ${JSON.stringify(val)}`);
         }
     }
-    logViewersFor(val) { //@TODO - collapse these three logViewersFor, logTipsFor, logChatFor functions, they're too common not to share code
+    private logViewersFor(val) { //@TODO - collapse these three logViewersFor, logTipsFor, logChatFor functions, they're too common not to share code
         switch (typeof val) {
             case "number":
                 //Join the room and add a tracker to the model logState object so that tipLogger knows to log for this model
@@ -332,7 +352,7 @@ class Logger {
             case "object":
                 for (let k in val) {
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log viewers for ${JSON.stringify(v)}`);
+                    assert.strictEqual(typeof v, "function", `Don't know how to log viewers for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState) {
                         if (callback(model, oldState, newState)) {
                             if (this.setState(model.uid, "viewers", true)) {
@@ -343,23 +363,23 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log viewers for ${JSON.stringify(val)}`);
+                assert.fail(`Don't know how to log viewers for ${JSON.stringify(val)}`);
         }
     }
-    logStateFor(val) {
+    private logStateFor(val) {
         this.logForHelper(val, "state");
         this.logForHelper(val, "truepvt");
     }
-    logCamScoreFor(val) {
+    private logCamScoreFor(val) {
         this.logForHelper(val, "camscore");
     }
-    logTopicsFor(val) {
+    private logTopicsFor(val) {
         this.logForHelper(val, "topic");
     }
-    logRankFor(val) {
+    private logRankFor(val) {
         this.logForHelper(val, "rank");
     }
-    logForHelper(val, prop) {
+    private logForHelper(val, prop) {
         switch (typeof val) {
             case "number":
                 if (prop == "truepvt") { //Minor hack, could clean up later
@@ -369,7 +389,7 @@ class Logger {
             case "object":
                 for (let k in val) {
                     let v = val[k];
-                    assert2.strictEqual(typeof v, "function", `Don't know how to log ${prop} for ${JSON.stringify(v)}`);
+                    assert.strictEqual(typeof v, "function", `Don't know how to log ${prop} for ${JSON.stringify(v)}`);
                     MyFreeCams.Model.on(k, function(callback, model, oldState, newState) {
                         if (callback(model, oldState, newState)) {
                             if (prop == "truepvt") { //Minor hack, could clean up later
@@ -381,10 +401,10 @@ class Logger {
                 }
                 break;
             default:
-                assert2.fail(`Don't know how to log ${prop} for ${JSON.stringify(val)}`);
+                assert.fail(`Don't know how to log ${prop} for ${JSON.stringify(val)}`);
         }
     }
-    setState(id, state, value = true) {
+    private setState(id, state, value = true) {
         MyFreeCams.Model.getModel(id).logState = MyFreeCams.Model.getModel(id).logState || {}
         if (MyFreeCams.Model.getModel(id).logState[state] === value) {
             return false; //Did not change anything (was already set like this)
@@ -394,14 +414,14 @@ class Logger {
         }
     }
     // Enters the given model's chat room if we're not already in it
-    joinRoom(model) {
+    private joinRoom(model) {
         if (model.__haveJoinedRoom === undefined || model.__haveJoinedRoom === false) { //@TODO - Move __haveJoinedRoom into the .logState sub-object like we have in logChatFor...
             log2(`Joining room for ${model.nm}`, model.nm);
             this.client.joinRoom(model.uid);
             model.__haveJoinedRoom = true;
         }
     }
-    leaveRoom(model) {
+    private leaveRoom(model) {
         //@TODO - I suppose we would call this if we were, say, recording tokens for models in the top 10 and one model dropped to //11...
         if (model.__haveJoinedRoom === true) {
             log2(`Leaving room for ${model.nm}`, model.nm);
@@ -410,14 +430,14 @@ class Logger {
         }
     }
     // Below here are helper methods that log the various messages to the console and log files with some nice formatting
-    chatLogger(packet) {
+    private chatLogger(packet) {
         if (packet.aboutModel.logState !== undefined &&
             packet.aboutModel.logState.chat === true &&
             packet.chatString !== undefined) {
             log2(packet.chatString, packet.aboutModel.nm, this.chatFormat);
         }
     }
-    tipLogger(packet) {
+    private tipLogger(packet) {
         if (packet.aboutModel.logState !== undefined &&
             packet.aboutModel.logState.tips === true &&
             packet.chatString !== undefined) {
@@ -434,7 +454,21 @@ class Logger {
             log2(packet.chatString, packet.aboutModel.nm, format);
         }
     }
-    stateLogger(model, oldState, newState) {
+    private durationToString(duration): string {
+        //We could use moment.duration().humanize(), but that's a little too imprecise for my tastes
+        //Instead, we'll break down to a string that captures the exact hours/minutes/seconds
+        function pad(num){
+            if(num<10){
+                return "0"+num;
+            }else{
+                return ""+num;
+            }
+        }
+        return `${pad(Math.floor(duration.asHours()))}:${pad(duration.minutes())}:${pad(duration.seconds())}`;
+    }
+    private stateLogger(model: LoggedModel, oldState, newState) {
+        let now = moment();
+
         //If a model has gone offline
         if (newState === MyFreeCams.FCVIDEO.OFFLINE) {
             //Indicate that we are not in her room, so that
@@ -442,23 +476,28 @@ class Logger {
             //but don't actually leave her room (via leaveRoom())
             model.__haveJoinedRoom = false;
         }
-        
+
         if (model.logState !== undefined && model.logState.state === true) {
-            if (oldState !== newState) { //@TODO - Confirm that this still allows true private states to be logged
-                let statestr = MyFreeCams.STATE[model.bestSession.vs];
-                if (model.bestSession.truepvt === 1 && model.bestSession.vs === MyFreeCams.STATE.Private) {
-                    statestr = "True Private";
-                }
-                if (model.bestSession.truepvt === 0 && model.bestSession.vs === MyFreeCams.STATE.Private) {
-                    statestr = "Regular Private";
-                }
+            let statestr = MyFreeCams.STATE[model.bestSession.vs];
+            if (model.bestSession.truepvt === 1 && model.bestSession.vs === MyFreeCams.STATE.Private) {
+                statestr = "True Private";
+            }
+            if (model.bestSession.truepvt === 0 && model.bestSession.vs === MyFreeCams.STATE.Private) {
+                statestr = "Regular Private";
+            }
+            if (model.logState.previousStateStr !== undefined && model.logState.lastStateChange !== undefined) {
+                let duration = moment.duration(now-model.logState.lastStateChange);
+                log2(`${model.nm} is now in state ${statestr} after ${this.durationToString(duration)} in ${model.logState.previousStateStr}`, model.nm, this.basicFormat);
+            } else {
                 log2(`${model.nm} is now in state ${statestr}`, model.nm, this.basicFormat);
             }
+            model.logState.previousStateStr = statestr;
+            model.logState.lastStateChange = now;
         }
     }
-    rankLogger(model, oldState, newState) {
+    private rankLogger(model, oldState, newState) {
         if (model.logState !== undefined && model.logState.rank === true) {
-            if (oldState != undefined && oldState !== newState) {
+            if (oldState != undefined) { //Ignore the initial rank setting, just because it can be *very* noisy with thousands of girls online
                 let format = newState > oldState ? this.rankDown : this.rankUp //@BUGBUG - @TODO - This currently formats dropping below rank 250 as rankup and coming above rank 250 as rankdown....
                 if (oldState === 0) {
                     oldState = "over 250";
@@ -472,22 +511,18 @@ class Logger {
             }
         }
     }
-    topicLogger(model, oldState, newState) {
+    private topicLogger(model, oldState, newState) {
         if (model.logState !== undefined && model.logState.topic === true) {
-            if (oldState !== newState) {
-                log2(`TOPIC: ${newState}`, model.nm, this.topicFormat);
-            }
+            log2(`TOPIC: ${newState}`, model.nm, this.topicFormat);
         }
     }
-    camscoreLogger(model, oldState, newState) {
+    private camscoreLogger(model, oldState, newState) {
         if (model.logState !== undefined && model.logState.camscore === true) {
-            if (oldState !== newState) {
-                let format = newState > oldState ? this.rankDown : this.rankUp;
-                log2(`${model.nm} camscore is now ${newState}`, model.nm, format);
-            }
+            let format = newState > oldState ? this.rankUp : this.rankDown;
+            log2(`${model.nm}'s camscore is now ${newState}`, model.nm, format);
         }
     }
-    viewerLogger(packet) { // @TODO - Test this out, also need to hook it up to options so that people can opt in to this
+    private viewerLogger(packet) { // @TODO - Test this out, also need to hook it up to options so that people can opt in to this
         if (packet.aboutModel.logState !== undefined &&
             packet.aboutModel.logState.viewers === true) {
 
@@ -508,7 +543,7 @@ class Logger {
                 //@TODO - @BUGBUG
                 //log2(`User ${packet.nm} (id: ${packet.nFrom}) left the room.`, packet.aboutModel.nm);
                 default:
-                    assert2.fail(`Don't know how to log viewer change for ${packet.toString()}`);
+                    assert.fail(`Don't know how to log viewer change for ${packet.toString()}`);
             }
         }
     }

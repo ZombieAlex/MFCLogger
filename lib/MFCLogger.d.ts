@@ -1,11 +1,4 @@
-
-
-declare let fs: any;
-declare let mongodb: any;
-declare let color: any;
-declare let MyFreeCams: any;
-declare let log2: any;
-declare let assert2: any;
+/// <reference path="../node_modules/MFCAuto/lib/MFCAuto.d.ts" />
 declare type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
 interface LoggerOptions {
     all: Array<number | {
@@ -54,22 +47,23 @@ declare class Logger {
     private rankUp;
     private rankDown;
     constructor(client: Client, options: LoggerOptions, ready: any);
-    logChatFor(val: any): void;
-    logTipsFor(val: any): void;
-    logViewersFor(val: any): void;
-    logStateFor(val: any): void;
-    logCamScoreFor(val: any): void;
-    logTopicsFor(val: any): void;
-    logRankFor(val: any): void;
-    logForHelper(val: any, prop: any): void;
-    setState(id: any, state: any, value?: boolean): boolean;
-    joinRoom(model: any): void;
-    leaveRoom(model: any): void;
-    chatLogger(packet: any): void;
-    tipLogger(packet: any): void;
-    stateLogger(model: any, oldState: any, newState: any): void;
-    rankLogger(model: any, oldState: any, newState: any): void;
-    topicLogger(model: any, oldState: any, newState: any): void;
-    camscoreLogger(model: any, oldState: any, newState: any): void;
-    viewerLogger(packet: any): void;
+    private logChatFor(val);
+    private logTipsFor(val);
+    private logViewersFor(val);
+    private logStateFor(val);
+    private logCamScoreFor(val);
+    private logTopicsFor(val);
+    private logRankFor(val);
+    private logForHelper(val, prop);
+    private setState(id, state, value?);
+    private joinRoom(model);
+    private leaveRoom(model);
+    private chatLogger(packet);
+    private tipLogger(packet);
+    private durationToString(duration);
+    private stateLogger(model, oldState, newState);
+    private rankLogger(model, oldState, newState);
+    private topicLogger(model, oldState, newState);
+    private camscoreLogger(model, oldState, newState);
+    private viewerLogger(packet);
 }
