@@ -68,7 +68,7 @@ class Logger {
 
     /////////////////////////////////////////
     //MongoDB support for recording model IDs
-    private MongoClient = mongodb.MongoClient;
+    private MongoClient = null;
     private database: any = null;
     private collection: any = null;
 
@@ -103,6 +103,7 @@ class Logger {
             switch (k) {
                 case "logmodelids":
                     mongodb = require("mongodb");
+                    this.MongoClient = mongodb.MongoClient;
                     // Mongo shape is {_id: mongoshit, id: <mfcid number>, names: [name1, name2, etc]}
 
                     //Save the db before exiting
