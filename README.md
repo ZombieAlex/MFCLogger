@@ -7,68 +7,62 @@ All logs will be printed to the console, with color coding, and to separate log 
 This exists in the repo as src/test/test.js. Feel free to run it from there.
 
 ```javascript
+"use strict";
+
 let mfc = require("MFCAuto");
 let client = new mfc.Client();
-let Logger = require("MFCLogger").Logger;
+let lgr = require("MFCLogger.js");
+let Logger = lgr.Logger;
+let cat = lgr.LoggerCategories;
 
-let options = {
-    // Log everything for...
-    all: [
-        // AspenRae
-        3111899,
-        // MissMolly
-        11972850
-    ],
-    
-    // Log rank changes for...
-    rank: [
-        // Models whose rank is in the top 250
-        { rank: (model, before, after) => after !== 0 }
-    ],
-    
-    // Log tips received for...
-    tips: [
-        // Models whose rank is in the top 10
-        { rank: (model, before, after) => after !== 0 && after <= 10 }
-    ],
-    
-    // Log topic changes for...
-    topic: [
-        // Models with 'athletic' in their tags and models with 'raffle' in their topic
-        {
-            tags: (model, before, after) => after.findIndex((value) => /athletic/i.test(value)) !== -1,
-            topic: (model, before, after) => /raffle/i.test(after)
-        }
-    ]
-};
+let options = [
+    // Log everything for AspenRae and MissMolly
+    { id: 3111899, what: [cat.all] },
+    { id: 11972850, what: [cat.all] },
+    // Log camscore and rank for CrazyM but only when she has more than 500 viewers in her room
+    { id: 4585086, what: [cat.camscore, cat.rank], when: (m) => m.bestSession.rc > 500 },
+    // Log only rank changes for models in the top 250
+    { what: [cat.rank], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0 },
+    // Log only tips received for models in the top 60
+    { what: [cat.tips], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0 && m.bestSession.rank <= 60 },
+    // Log only topic changes for models with 'athletic' in their tags or models with 'raffle' in their topic
+    { what: [cat.topic], when: (m) => m.tags.findIndex((value) => /athletic/i.test(value)) !== -1 },
+    { what: [cat.topic], when: (m) => /raffle/i.test(m.bestSession.topic) }
+];
 
-let log = new Logger(client, options);
+new Logger(client, options);
 client.connect();
 ```
 
 ##Options
-As defined in TypeScript below. Models can be specified via their ID directly or selected with a filter object. Hopefully the above example explains the filter object somewhat. If it's unclear, reviewing the MFCAuto documentation for the Model.on function might help.
+Options should be an array of LoggerSelector elements as defined in TypeScript below. Models are selected via their ID directly or a filter function. When using a filter function, logging will start for the model when she matches the filter and stop when she ceases matching the filter.
 
 ```typescript
-type LoggerFilter = (model: Model, beforeState: any, afterState: any) => boolean;
-interface LoggerOptions{
+enum LoggerCategories {
     // Log all of the below, except viewers, for these models
-    all: Array<number | {[index:string]: LoggerFilter}>;
+    all,
     // Log all of the below, except chat and viewers, for these models
-    nochat: Array<number | {[index:string]: LoggerFilter}>;
+    nochat,
     // Log chat and tips for these models
-    chat: Array<number | {[index:string]: LoggerFilter}>;
-    tips: Array<number | {[index:string]: LoggerFilter}>;
-    // Log guest counts and member names of people entering/leaving
+    chat,
+    // Log tips but not chat for these models
+    tips,
+    // Log room counts and member names of people entering/leaving
     // the chat room
-    viewers: Array<number | {[index:string]: LoggerFilter}>;
+    viewers,
     // Log rank changes for these models
-    rank: Array<number | {[index:string]: LoggerFilter}>;
+    rank,
     // Log topic changes for these models
-    topic: Array<number | {[index:string]: LoggerFilter}>;
+    topic,
     // Log video state changes for these models
-    state: Array<number | {[index:string]: LoggerFilter}>;
+    state,
     // Log camscore changes for these models
-    camscore: Array<number | {[index:string]: LoggerFilter}>;
+    camscore
+}
+
+interface LoggerSelector {
+    id?: number; // When not given, what applies to all models
+    what: LoggerCategories[];
+    when?: (m: Model) => boolean; // When not given, when is equivalent to (m) => true
 }
 ```

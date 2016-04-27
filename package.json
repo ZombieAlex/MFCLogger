@@ -1,6 +1,6 @@
 {
   "name": "MFCLogger",
-  "version": "2.1.0",
+  "version": "3.0.0",
   "description": "Simplifies logging MFC chat or status changes to the console and log files",
   "main": "index.js",
   "dependencies": {
