@@ -11,7 +11,7 @@ This exists in the repo as src/test/test.js. Feel free to run it from there.
 
 let mfc = require("MFCAuto");
 let client = new mfc.Client();
-let lgr = require("MFCLogger.js");
+let lgr = require("MFCLogger");
 let Logger = lgr.Logger;
 let cat = lgr.LoggerCategories;
 
