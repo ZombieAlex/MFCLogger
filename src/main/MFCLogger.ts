@@ -389,7 +389,7 @@ class Logger {
                     if (err) {
                         throw err;
                     }
-                    if (doc !== undefined) {
+                    if (doc != undefined) {
                         if (doc.names.indexOf(obj.nm) === -1) { // We've not seen this name before
                             doc.names.push(obj.nm);
                             collection.save(doc, (err, result) => {
