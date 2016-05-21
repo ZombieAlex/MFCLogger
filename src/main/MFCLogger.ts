@@ -77,7 +77,7 @@ class Logger {
 
         /////////////////////////////////////
         // Color formatting
-        console.log(color.reset);
+        // console.log(color.reset);
 
         /////////////////////////////////////
         // Process options
