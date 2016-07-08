@@ -11,9 +11,8 @@
         "stripInternal": true,
         "removeComments": true
     },
-    "files": [
-      "./typings/tsd.d.ts",
-      "./node_modules/MFCAuto/lib/MFCAuto.d.ts",
-      "./src/main/MFCLogger.ts"
+    "exclude": [
+        "node_modules",
+        "lib"
     ]
 }

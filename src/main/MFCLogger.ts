@@ -1,15 +1,10 @@
-/* @internal */
-let color = require("cli-color");
-/* @internal */
-let MyFreeCams = require("MFCAuto");
-/* @internal */
-let log = MyFreeCams.log;
-/* @internal */
-let assert = require("assert");
-/* @internal */
-let moment: moment.MomentStatic = require("moment");
-/* @internal */
 import {MongoClient, Db, Collection} from "mongodb";
+import * as assert from "assert";
+import * as color from "cli-color";
+import * as moment from "moment";
+import * as MyFreeCams from "MFCAuto";
+
+let log = MyFreeCams.log;
 
 enum LoggerCategories {
     // Log all of the below, except viewers, for these models
@@ -36,7 +31,7 @@ enum LoggerCategories {
 interface LoggerSelector {
     id?: number; // When not given, what applies to all models
     what: LoggerCategories[];
-    when?: (m: Model) => boolean; // When not given, when is equivalent to (m) => true
+    when?: (m: MyFreeCams.Model) => boolean; // When not given, when is equivalent to (m) => true
 }
 
 class Logger {
@@ -44,12 +39,12 @@ class Logger {
     private logSets: Map<string, Set<number>>;
     private tempLogSets: Map<string, Set<number>>;
     private joinedRooms: Set<number>;
-    private previousStates: Map<number, { lastStateStr: moment.Moment, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
+    private previousStates: Map<number, { lastStateStr: string, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
     private userSessionsToIds: Map<number, number>;
     private userIdsToNames: Map<number, string>;
 
     // Set up basic modules and fields
-    private client: Client;
+    private client: MyFreeCams.Client;
     private ready: (l: Logger) => void;
 
     /////////////////////////////////////////
@@ -64,12 +59,12 @@ class Logger {
     private rankUp = color.bgCyan.black;
     private rankDown = color.bgRed.white;
 
-    constructor(client: Client, selectors: LoggerSelector[], logmodelids = false, ready: (l: Logger) => void) {
+    constructor(client: MyFreeCams.Client, selectors: LoggerSelector[], logmodelids = false, ready: (l: Logger) => void) {
         assert.ok(Array.isArray(selectors), "Selectors must be an array of LoggerSelectors");
         this.client = client;
         this.ready = ready;
         this.joinedRooms = new Set() as Set<number>;
-        this.previousStates = new Map() as Map<number, { lastStateStr: moment.Moment, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
+        this.previousStates = new Map() as Map<number, { lastStateStr: string, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
         this.logSets = new Map() as Map<string, Set<number>>;
         this.tempLogSets = new Map() as Map<string, Set<number>>;
         this.userSessionsToIds = new Map() as Map<number, number>;
@@ -108,13 +103,13 @@ class Logger {
                         // When filter exists, only log this model when...
                         MyFreeCams.Model.getModel(selector.id).when(
                             selector.when,
-                            (m: Model, p: Packet) => {
+                            (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
                                 this.tempLogSets.get(LoggerCategories[category]).add(m.uid);
                                 if (!this.joinedRooms.has(m.uid) && this.shouldJoinRoom(m)) {
                                     this.joinRoom(m);
                                 }
                             },
-                            (m: Model, p: Packet) => {
+                            (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
                                 this.tempLogSets.get(LoggerCategories[category]).delete(m.uid);
                                 if (this.joinedRooms.has(m.uid) && !this.shouldJoinRoom(m)) {
                                     this.leaveRoom(m);
@@ -130,13 +125,13 @@ class Logger {
                     assert.ok(selector.when, "Invalid configuration, at least one of 'id' or 'when' must be on each selector");
                     MyFreeCams.Model.when(
                         selector.when,
-                        (m: Model, p: Packet) => {
+                        (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
                             this.tempLogSets.get(LoggerCategories[category]).add(m.uid);
                             if (!this.joinedRooms.has(m.uid) && this.shouldJoinRoom(m)) {
                                 this.joinRoom(m);
                             }
                         },
-                        (m: Model, p: Packet) => {
+                        (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
                             this.tempLogSets.get(LoggerCategories[category]).delete(m.uid);
                             if (this.joinedRooms.has(m.uid) && !this.shouldJoinRoom(m)) {
                                 this.leaveRoom(m);
@@ -180,7 +175,7 @@ class Logger {
 
     // Returns true if we need to be in the given model's room to
     // log everything we've been asked to log.  False if not.
-    private shouldJoinRoom(model: Model): boolean {
+    private shouldJoinRoom(model: MyFreeCams.Model): boolean {
         let should = false;
         let joinRoomCategories = [LoggerCategories.all, LoggerCategories.nochat, LoggerCategories.chat, LoggerCategories.tips, LoggerCategories.viewers];
         joinRoomCategories.forEach((category) => {
@@ -194,12 +189,12 @@ class Logger {
     // Returns true if the given model falls within the given LoggerCategory
     // either temporarily or permanently. This is just a helper to make the
     // following code more readable.
-    private inCategory(model: Model, category: LoggerCategories): boolean {
+    private inCategory(model: MyFreeCams.Model, category: LoggerCategories): boolean {
         return (this.logSets.get(LoggerCategories[category]).has(model.uid) || this.tempLogSets.get(LoggerCategories[category]).has(model.uid));
     }
 
     // Returns true if the given model is in any of the given categories
-    private inCategories(model: Model, categories: LoggerCategories[]): boolean {
+    private inCategories(model: MyFreeCams.Model, categories: LoggerCategories[]): boolean {
         let result = false;
         categories.forEach((category) => {
             if (this.inCategory(model, category)) {
@@ -210,7 +205,7 @@ class Logger {
     }
 
     // Enters the given model's chat room if we're not already in it
-    private joinRoom(model: Model) {
+    private joinRoom(model: MyFreeCams.Model) {
         if (!this.joinedRooms.has(model.uid)) {
             log(`Joining room for ${model.nm}`, model.nm);
             this.client.joinRoom(model.uid);
@@ -219,21 +214,21 @@ class Logger {
     }
 
     // Leaves the given model's chat room, if we're in it
-    private leaveRoom(model: Model) {
+    private leaveRoom(model: MyFreeCams.Model) {
         if (this.joinedRooms.has(model.uid)) {
             log(`Leaving room for ${model.nm}`, model.nm);
             this.client.leaveRoom(model.uid);
             this.joinedRooms.delete(model.uid);
         }
     }
-    private chatLogger(packet: Packet) {
+    private chatLogger(packet: MyFreeCams.Packet) {
         if (this.inCategories(packet.aboutModel, [LoggerCategories.chat, LoggerCategories.all]) && packet.chatString !== undefined) {
             log(packet.chatString, packet.aboutModel.nm, this.chatFormat);
         }
     }
-    private tipLogger(packet: Packet) {
+    private tipLogger(packet: MyFreeCams.Packet) {
         if (this.inCategories(packet.aboutModel, [LoggerCategories.tips, LoggerCategories.all, LoggerCategories.nochat]) && packet.chatString !== undefined) {
-            let msg = packet.sMessage as FCTokenIncResponse;
+            let msg = packet.sMessage as MyFreeCams.FCTokenIncResponse;
             let format = this.tinyTip;
             if (msg.tokens >= 50) {
                 format = this.smallTip;
@@ -259,7 +254,7 @@ class Logger {
         }
         return `${pad(Math.floor(duration.asHours()))}:${pad(duration.minutes())}:${pad(duration.seconds())}`;
     }
-    private stateLogger(model: Model, oldState: FCVIDEO, newState: FCVIDEO) {
+    private stateLogger(model: MyFreeCams.Model, oldState: MyFreeCams.FCVIDEO, newState: MyFreeCams.FCVIDEO) {
         let now = moment();
 
         // If a model has gone offline
@@ -294,7 +289,7 @@ class Logger {
             this.previousStates.set(model.uid, { lastStateStr: statestr, lastStateMoment: now, lastOnOffMoment: (oldState === MyFreeCams.FCVIDEO.OFFLINE || newState === MyFreeCams.FCVIDEO.OFFLINE) ? now : this.previousStates.get(model.uid).lastOnOffMoment });
         }
     }
-    private rankLogger(model: Model, oldState: number | string, newState: number | string) {
+    private rankLogger(model: MyFreeCams.Model, oldState: number | string, newState: number | string) {
         if (this.inCategories(model, [LoggerCategories.rank, LoggerCategories.all, LoggerCategories.nochat])) {
             if (oldState !== undefined) { // Ignore the initial rank setting, just because it can be *very* noisy with thousands of girls online
                 let format = newState > oldState ? this.rankDown : this.rankUp;
@@ -312,18 +307,18 @@ class Logger {
             }
         }
     }
-    private topicLogger(model: Model, oldState: string, newState: string) {
+    private topicLogger(model: MyFreeCams.Model, oldState: string, newState: string) {
         if (this.inCategories(model, [LoggerCategories.topic, LoggerCategories.all, LoggerCategories.nochat])) {
             log(`TOPIC: ${newState}`, model.nm, this.topicFormat);
         }
     }
-    private camscoreLogger(model: Model, oldState: string, newState: string) {
+    private camscoreLogger(model: MyFreeCams.Model, oldState: string, newState: string) {
         if (this.inCategories(model, [LoggerCategories.camscore, LoggerCategories.all, LoggerCategories.nochat])) {
             let format = newState > oldState || oldState === undefined ? this.rankUp : this.rankDown;
             log(`${model.nm}'s camscore is now ${newState}`, model.nm, format);
         }
     }
-    private viewerLogger(packet: Packet) {
+    private viewerLogger(packet: MyFreeCams.Packet) {
         if (this.inCategory(packet.aboutModel, LoggerCategories.viewers)) {
             if (packet.FCType === MyFreeCams.FCTYPE.GUESTCOUNT) {
                 log(`Guest viewer count is now ${packet.nArg1}`, packet.aboutModel.nm);
@@ -331,7 +326,7 @@ class Logger {
             }
 
             // Otherwise this packet must be a JOINCHAN, a notification of a member (whether basic or premium) entering or leaving the room
-            let msg = packet.sMessage as Message;
+            let msg = packet.sMessage as MyFreeCams.Message;
             switch (packet.nArg2) {
                 case MyFreeCams.FCCHAN.JOIN:
                     // Add this session to our user mappings
@@ -358,7 +353,7 @@ class Logger {
             }
         }
     }
-    private rcLogger(model: Model, before: number, after: number) {
+    private rcLogger(model: MyFreeCams.Model, before: number, after: number) {
         if (this.inCategory(model, LoggerCategories.viewers)) {
             log(`Total viewer count is now ${after}`, model.nm);
         }
@@ -381,9 +376,9 @@ class Logger {
         });
 
         // Set up a sessionstate callback, which will record all the model IDs
-        this.client.on("SESSIONSTATE", (packet: Packet) => {
+        this.client.on("SESSIONSTATE", (packet: MyFreeCams.Packet) => {
             let id = packet.nArg2;
-            let obj = packet.sMessage as Message;
+            let obj = packet.sMessage as MyFreeCams.Message;
             if (obj !== undefined && obj.nm !== undefined) {
                 collection.findOne({ id }, (err, doc) => {
                     if (err) {
@@ -392,16 +387,16 @@ class Logger {
                     if (doc != undefined) {
                         if (doc.names.indexOf(obj.nm) === -1) { // We've not seen this name before
                             doc.names.push(obj.nm);
-                            collection.save(doc, (err, result) => {
-                                if (err) {
-                                    log(err); // throw err
+                            collection.save(doc, (err2, result) => {
+                                if (err2) {
+                                    log(err2.toString()); // throw err2
                                 }
                             });
                         }
                     } else {
-                        collection.update({ id }, { id, names: [obj.nm] }, { w: 1, upsert: true }, (err, result) => {
-                            if (err) {
-                                log(err); // throw err
+                        collection.update({ id }, { id, names: [obj.nm] }, { w: 1, upsert: true }, (err3, result) => {
+                            if (err3) {
+                                log(err3.toString()); // throw err3
                             }
                         });
                     }
@@ -413,9 +408,9 @@ class Logger {
                 throw err;
             }
             database = db;
-            db.collection("IDDB", (err, col) => {
-                if (err) {
-                    throw err;
+            db.collection("IDDB", (err2, col) => {
+                if (err2) {
+                    throw err2;
                 }
                 if (col === undefined || col === null) {
                     throw new Error("Failed to connect to mongo");

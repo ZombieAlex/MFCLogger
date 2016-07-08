@@ -1,0 +1,9 @@
+{
+  "globalDependencies": {
+    "cli-color": "registry:dt/cli-color#0.0.0+20160317120654",
+    "es6-shim": "registry:dt/es6-shim#0.31.2+20160602141504",
+    "moment-node": "registry:dt/moment-node#2.11.1+20160511043338",
+    "mongodb": "registry:dt/mongodb#2.1.0+20160602142941",
+    "node": "registry:dt/node#6.0.0+20160621231320"
+  }
+}
