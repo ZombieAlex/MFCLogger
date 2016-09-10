@@ -3,3 +3,4 @@ src/test/*.txt
 *.txt
 *.map
 *.db
+*.db-journal

@@ -393,10 +393,14 @@ class Logger {
                                 throw err2;
                             }
 
+                            // Issue: Race conditions in these callbacks could theoretically result in duplicate rows
+                            // Although I've never seen that happen in practice and it doesn't really matter downstream
                             if (row2 === undefined) { // This model has no preferred name
                                 database.run("INSERT INTO ids VALUES (?,?,?)", id, obj.nm, 1); // Set this name as preferred
                             } else {
-                                database.run("INSERT INTO ids VALUES (?,?,?)", id, obj.nm, 0); // Record the name, leaving preferred alone
+                                if (row2.name !== obj.nm) { // If the current name hasn't already become preferred from a race condition
+                                    database.run("INSERT INTO ids VALUES (?,?,?)", id, obj.nm, 0); // Record the name, leaving preferred alone
+                                }
                             }
                         });
                     }
