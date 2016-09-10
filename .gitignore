@@ -2,3 +2,4 @@ node_modules/
 src/test/*.txt
 *.txt
 *.map
+*.db

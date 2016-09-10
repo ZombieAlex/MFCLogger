@@ -21,5 +21,5 @@ let options = [
     { what: [cat.topic], when: (m) => /raffle/i.test(m.bestSession.topic) }
 ];
 
-new Logger(client, options);
+new Logger(client, options, "test_logger.db");
 client.connect();

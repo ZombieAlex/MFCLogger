@@ -1,8 +1,9 @@
-import {MongoClient, Db, Collection} from "mongodb";
+import * as sqlite3 from "sqlite3";
 import * as assert from "assert";
 import * as color from "cli-color";
 import * as moment from "moment";
 import * as MyFreeCams from "MFCAuto";
+import * as fs from "fs";
 
 let log = MyFreeCams.log;
 
@@ -59,7 +60,7 @@ class Logger {
     private rankUp = color.bgCyan.black;
     private rankDown = color.bgRed.white;
 
-    constructor(client: MyFreeCams.Client, selectors: LoggerSelector[], logmodelids = false, ready: (l: Logger) => void) {
+    constructor(client: MyFreeCams.Client, selectors: LoggerSelector[], sqliteDBName: string = undefined, ready: (l: Logger) => void) {
         assert.ok(Array.isArray(selectors), "Selectors must be an array of LoggerSelectors");
         this.client = client;
         this.ready = ready;
@@ -78,11 +79,11 @@ class Logger {
         // Process options
 
         // For internal use only, stores a mapping of
-        // model ids to model names in a local mongodb.
-        // If that's useful to you and you have a local mongodb,
+        // model ids to model names in a local sqlite3.
+        // If that's useful to you and you have a local sqlite3,
         // go for it, otherwise it's just for me (the author)
-        if (logmodelids) {
-            this.doMongo();
+        if (sqliteDBName) {
+            this.doSqlite3(sqliteDBName);
         }
 
         // Init the empty model sets for each category
@@ -168,7 +169,7 @@ class Logger {
         // Hook all rank changes
         MyFreeCams.Model.on("rank", this.rankLogger.bind(this));
 
-        if (this.ready !== undefined && logmodelids !== true) {
+        if (this.ready !== undefined && !sqliteDBName) {
             this.ready(this);
         }
     }
@@ -360,13 +361,15 @@ class Logger {
     }
 
     // Ignore this, it's most likely not useful to you and not used by you...
-    private doMongo() {
-        let mongodb = require("mongodb");
-        let MongoClient: MongoClient = null;
-        let database: Db = null;
-        let collection: Collection = null;
-        MongoClient = mongodb.MongoClient;
-        // Mongo shape is {_id: mongoshit, id: <mfcid number>, names: [name1, name2, etc]}
+    private doSqlite3(sqliteDBName: string) {
+        let createSchema = false;
+        if (!fs.existsSync(sqliteDBName)) {
+            createSchema = true;
+        }
+        let database = new sqlite3.Database(sqliteDBName || ":memory:");
+        if (createSchema) {
+            database.run("CREATE TABLE ids (modid INTEGER, name TEXT, preferred INTEGER)");
+        }
 
         // Save the db before exiting
         process.on('exit', () => {
@@ -380,46 +383,25 @@ class Logger {
             let id = packet.nArg2;
             let obj = packet.sMessage as MyFreeCams.Message;
             if (obj !== undefined && obj.nm !== undefined) {
-                collection.findOne({ id }, (err, doc) => {
+                database.get("SELECT modid, name, preferred FROM ids WHERE modid=? and name=?", [id, obj.nm], (err, row) => {
                     if (err) {
                         throw err;
                     }
-                    if (doc != undefined) {
-                        if (doc.names.indexOf(obj.nm) === -1) { // We've not seen this name before
-                            doc.names.push(obj.nm);
-                            collection.save(doc, (err2, result) => {
-                                if (err2) {
-                                    log(err2.toString()); // throw err2
-                                }
-                            });
-                        }
-                    } else {
-                        collection.update({ id }, { id, names: [obj.nm] }, { w: 1, upsert: true }, (err3, result) => {
-                            if (err3) {
-                                log(err3.toString()); // throw err3
+                    if (row === undefined) { // We've not seen this name for this model before
+                        database.get("SELECT modid, name, preferred FROM ids WHERE modid=? AND preferred=1", [id], (err2, row2) => {
+                            if (err2) {
+                                throw err2;
+                            }
+
+                            if (row2 === undefined) { // This model has no preferred name
+                                database.run("INSERT INTO ids VALUES (?,?,?)", id, obj.nm, 1); // Set this name as preferred
+                            } else {
+                                database.run("INSERT INTO ids VALUES (?,?,?)", id, obj.nm, 0); // Record the name, leaving preferred alone
                             }
                         });
                     }
                 });
             }
-        });
-        MongoClient.connect("mongodb://127.0.0.1:27017/Incoming", (err, db) => {
-            if (err) {
-                throw err;
-            }
-            database = db;
-            db.collection("IDDB", (err2, col) => {
-                if (err2) {
-                    throw err2;
-                }
-                if (col === undefined || col === null) {
-                    throw new Error("Failed to connect to mongo");
-                }
-                collection = col;
-                if (this.ready !== undefined) {
-                    this.ready(this);
-                }
-            });
         });
     }
 }

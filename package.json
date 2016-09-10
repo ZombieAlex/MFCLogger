@@ -1,6 +1,6 @@
 {
   "name": "MFCLogger",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Simplifies logging MFC chat or status changes to the console and log files",
   "main": "lib/MFCLogger.js",
   "typings": "lib/MFCLogger",
@@ -8,7 +8,7 @@
     "MFCAuto": "ZombieAlex/MFCAuto",
     "cli-color": "^0.3.2",
     "moment": "^2.14.1",
-    "mongodb": "^1.4.40"
+    "sqlite3": "^3.1.4"
   },
   "devDependencies": {
     "typescript": "^1.8.9"
