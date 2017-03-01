@@ -7,7 +7,7 @@ import * as fs from "fs";
 
 let log = MyFreeCams.log;
 
-enum LoggerCategories {
+export enum LoggerCategories {
     // Log all of the below, except viewers, for these models
     all,
     // Log all of the below, except chat and viewers, for these models
@@ -29,13 +29,13 @@ enum LoggerCategories {
     camscore
 }
 
-interface LoggerSelector {
+export interface LoggerSelector {
     id?: number; // When not given, what applies to all models
     what: LoggerCategories[];
     when?: (m: MyFreeCams.Model) => boolean; // When not given, when is equivalent to (m) => true
 }
 
-class Logger {
+export class Logger {
     // Logging sets
     private logSets: Map<string, Set<number>>;
     private tempLogSets: Map<string, Set<number>>;
@@ -295,11 +295,11 @@ class Logger {
             if (oldState !== undefined) { // Ignore the initial rank setting, just because it can be *very* noisy with thousands of girls online
                 let format = newState > oldState ? this.rankDown : this.rankUp;
                 if (oldState === 0) {
-                    oldState = "over 250";
+                    oldState = "over 1000";
                     format = this.rankUp;
                 }
                 if (newState === 0) {
-                    newState = "over 250";
+                    newState = "over 1000";
                     format = this.rankDown;
                 }
 
@@ -350,7 +350,7 @@ class Logger {
                     }
                     break;
                 default:
-                    assert.fail(`Don't know how to log viewer change for ${packet.toString()}`);
+                    assert.ok(false, `Don't know how to log viewer change for ${packet.toString()}`);
             }
         }
     }
@@ -409,6 +409,3 @@ class Logger {
         });
     }
 }
-
-exports.Logger = Logger;
-exports.LoggerCategories = LoggerCategories;
