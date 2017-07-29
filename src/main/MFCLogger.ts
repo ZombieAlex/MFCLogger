@@ -1,11 +1,9 @@
-import * as sqlite3 from "sqlite3";
 import * as assert from "assert";
-import * as color from "cli-color";
+import * as supportsColor from "supports-color";
 import * as moment from "moment";
-import * as MyFreeCams from "MFCAuto";
+import * as mfc from "MFCAuto";
 import * as fs from "fs";
-
-let log = MyFreeCams.log;
+const chalk = require("chalk");
 
 export enum LoggerCategories {
     // Log all of the below, except viewers, for these models
@@ -32,42 +30,40 @@ export enum LoggerCategories {
 export interface LoggerSelector {
     id?: number; // When not given, what applies to all models
     what: LoggerCategories[];
-    when?: (m: MyFreeCams.Model) => boolean; // When not given, when is equivalent to (m) => true
+    when?: (m: mfc.Model) => boolean; // When not given, when is equivalent to (m) => true
+    where?: string; // What log file to log into, if not specified, a log file matching the model's current name will be used. Set to null for no file logging, only console
 }
 
 export class Logger {
     // Logging sets
-    private logSets: Map<string, Set<number>>;
-    private tempLogSets: Map<string, Set<number>>;
+    private logSets: Map<string, Map<number, Set<string>>>;
+    private tempLogSets: Map<string, Map<number, Set<string>>>;
     private joinedRooms: Set<number>;
     private previousStates: Map<number, { lastStateStr: string, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
     private userSessionsToIds: Map<number, number>;
     private userIdsToNames: Map<number, string>;
+    private joinRoomCategories = [LoggerCategories.all, LoggerCategories.nochat, LoggerCategories.chat, LoggerCategories.tips, LoggerCategories.viewers];
 
     // Set up basic modules and fields
-    private client: MyFreeCams.Client;
+    private client: mfc.Client;
     private ready: (l: Logger) => void;
 
     /////////////////////////////////////////
     // Color formatting
-    private basicFormat = color.bgBlack.white;
-    private chatFormat = color.bgBlack.white;
-    private topicFormat = color.bgBlack.cyan;
-    private tinyTip = color.bgBlackBright.black; // <50
-    private smallTip = color.bgWhite.black; // <200
-    private mediumTip = color.bgWhiteBright.black; // >200 and <1000
-    private largeTip = color.bgYellowBright.black; // >1000
-    private rankUp = color.bgCyan.black;
-    private rankDown = color.bgRed.white;
+    private basicFormat = chalk.bgBlack.white;
+    private chatFormat = chalk.bgBlack.white;
+    private topicFormat = chalk.bgBlack.cyan;
+    private rankUp = chalk.bgCyan.black;
+    private rankDown = chalk.bgRed.white;
 
-    constructor(client: MyFreeCams.Client, selectors: LoggerSelector[], sqliteDBName: string = undefined, ready: (l: Logger) => void) {
+    constructor(client: mfc.Client, selectors: LoggerSelector[], sqliteDBName: string = undefined, ready: (l: Logger) => void) {
         assert.ok(Array.isArray(selectors), "Selectors must be an array of LoggerSelectors");
         this.client = client;
         this.ready = ready;
         this.joinedRooms = new Set() as Set<number>;
         this.previousStates = new Map() as Map<number, { lastStateStr: string, lastStateMoment: moment.Moment, lastOnOffMoment: moment.Moment }>;
-        this.logSets = new Map() as Map<string, Set<number>>;
-        this.tempLogSets = new Map() as Map<string, Set<number>>;
+        this.logSets = new Map() as Map<string, Map<number, Set<string>>>;
+        this.tempLogSets = new Map() as Map<string, Map<number, Set<string>>>;
         this.userSessionsToIds = new Map() as Map<number, number>;
         this.userIdsToNames = new Map() as Map<number, string>;
 
@@ -88,8 +84,8 @@ export class Logger {
 
         // Init the empty model sets for each category
         Object.getOwnPropertyNames(LoggerCategories).filter(v => isNaN(parseInt(v))).forEach((name) => {
-            this.logSets.set(name, new Set() as Set<number>);
-            this.tempLogSets.set(name, new Set() as Set<number>);
+            this.logSets.set(name, new Map() as Map<number, Set<string>>);
+            this.tempLogSets.set(name, new Map() as Map<number, Set<string>>);
         });
 
         selectors.forEach((selector) => {
@@ -102,16 +98,16 @@ export class Logger {
                 if (selector.id) {
                     if (selector.when) {
                         // When filter exists, only log this model when...
-                        MyFreeCams.Model.getModel(selector.id).when(
+                        mfc.Model.getModel(selector.id).when(
                             selector.when,
-                            (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
-                                this.tempLogSets.get(LoggerCategories[category]).add(m.uid);
+                            (m: mfc.Model, p: mfc.Message) => {
+                                this.addTempLogging(category, m, selector.where);
                                 if (!this.joinedRooms.has(m.uid) && this.shouldJoinRoom(m)) {
                                     this.joinRoom(m);
                                 }
                             },
-                            (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
-                                this.tempLogSets.get(LoggerCategories[category]).delete(m.uid);
+                            (m: mfc.Model, p: mfc.Message) => {
+                                this.removeTempLogging(category, m, selector.where);
                                 if (this.joinedRooms.has(m.uid) && !this.shouldJoinRoom(m)) {
                                     this.leaveRoom(m);
                                 }
@@ -119,21 +115,21 @@ export class Logger {
                         );
                     } else {
                         // No when filter, always log this model
-                        this.logSets.get(LoggerCategories[category]).add(selector.id);
+                        this.addPermaLogging(category, mfc.Model.getModel(selector.id), selector.where);
                     }
                 } else {
                     // No id, must be a global when filter
                     assert.ok(selector.when, "Invalid configuration, at least one of 'id' or 'when' must be on each selector");
-                    MyFreeCams.Model.when(
+                    mfc.Model.when(
                         selector.when,
-                        (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
-                            this.tempLogSets.get(LoggerCategories[category]).add(m.uid);
+                        (m: mfc.Model, p: mfc.Message) => {
+                            this.addTempLogging(category, m, selector.where);
                             if (!this.joinedRooms.has(m.uid) && this.shouldJoinRoom(m)) {
                                 this.joinRoom(m);
                             }
                         },
-                        (m: MyFreeCams.Model, p: MyFreeCams.Packet) => {
-                            this.tempLogSets.get(LoggerCategories[category]).delete(m.uid);
+                        (m: mfc.Model, p: mfc.Message) => {
+                            this.removeTempLogging(category, m, selector.where);
                             if (this.joinedRooms.has(m.uid) && !this.shouldJoinRoom(m)) {
                                 this.leaveRoom(m);
                             }
@@ -154,32 +150,58 @@ export class Logger {
         // Hook all room viewer join/leaves
         this.client.on("JOINCHAN", this.viewerLogger.bind(this));
         this.client.on("GUESTCOUNT", this.viewerLogger.bind(this));
-        MyFreeCams.Model.on("rc", this.rcLogger.bind(this));
+        mfc.Model.on("rc", this.rcLogger.bind(this));
 
         // Hook all state changes
-        MyFreeCams.Model.on("vs", this.stateLogger.bind(this));
+        mfc.Model.on("vs", this.stateLogger.bind(this));
         // MyFreeCams.Model.on("truepvt", this.stateLogger.bind(this)); // This never fires due to an MFCAuto bug
 
         // Hook all camscore changes
-        MyFreeCams.Model.on("camscore", this.camscoreLogger.bind(this));
+        mfc.Model.on("camscore", this.camscoreLogger.bind(this));
 
         // Hook all topic changes
-        MyFreeCams.Model.on("topic", this.topicLogger.bind(this));
+        mfc.Model.on("topic", this.topicLogger.bind(this));
 
         // Hook all rank changes
-        MyFreeCams.Model.on("rank", this.rankLogger.bind(this));
+        mfc.Model.on("rank", this.rankLogger.bind(this));
 
         if (this.ready !== undefined && !sqliteDBName) {
             this.ready(this);
         }
     }
 
+    private addTempLogging(category: LoggerCategories, m: mfc.Model, filename: string): void {
+        if (!this.tempLogSets.get(LoggerCategories[category]).has(m.uid)) {
+            this.tempLogSets.get(LoggerCategories[category]).set(m.uid, new Set());
+        }
+        if (filename !== null) {
+            filename = filename || m.nm;
+        }
+        this.tempLogSets.get(LoggerCategories[category]).get(m.uid).add(filename);
+    }
+
+    private removeTempLogging(category: LoggerCategories, m: mfc.Model, filename: string): void {
+        this.tempLogSets.get(LoggerCategories[category]).get(m.uid).delete(filename);
+        if (this.tempLogSets.get(LoggerCategories[category]).get(m.uid).size === 0) {
+            this.tempLogSets.get(LoggerCategories[category]).delete(m.uid);
+        }
+    }
+
+    private addPermaLogging(category: LoggerCategories, m: mfc.Model, filename: string): void {
+        if (!this.logSets.get(LoggerCategories[category]).has(m.uid)) {
+            this.logSets.get(LoggerCategories[category]).set(m.uid, new Set());
+        }
+        if (filename !== null) {
+            filename = filename || m.nm;
+        }
+        this.logSets.get(LoggerCategories[category]).get(m.uid).add(filename);
+    }
+
     // Returns true if we need to be in the given model's room to
     // log everything we've been asked to log.  False if not.
-    private shouldJoinRoom(model: MyFreeCams.Model): boolean {
+    private shouldJoinRoom(model: mfc.Model): boolean {
         let should = false;
-        let joinRoomCategories = [LoggerCategories.all, LoggerCategories.nochat, LoggerCategories.chat, LoggerCategories.tips, LoggerCategories.viewers];
-        joinRoomCategories.forEach((category) => {
+        this.joinRoomCategories.forEach((category) => {
             if (this.logSets.get(LoggerCategories[category]).has(model.uid) || this.tempLogSets.get(LoggerCategories[category]).has(model.uid)) {
                 should = true;
             }
@@ -190,12 +212,12 @@ export class Logger {
     // Returns true if the given model falls within the given LoggerCategory
     // either temporarily or permanently. This is just a helper to make the
     // following code more readable.
-    private inCategory(model: MyFreeCams.Model, category: LoggerCategories): boolean {
+    private inCategory(model: mfc.Model, category: LoggerCategories): boolean {
         return (this.logSets.get(LoggerCategories[category]).has(model.uid) || this.tempLogSets.get(LoggerCategories[category]).has(model.uid));
     }
 
     // Returns true if the given model is in any of the given categories
-    private inCategories(model: MyFreeCams.Model, categories: LoggerCategories[]): boolean {
+    private inCategories(model: mfc.Model, categories: LoggerCategories[]): boolean {
         let result = false;
         categories.forEach((category) => {
             if (this.inCategory(model, category)) {
@@ -205,42 +227,77 @@ export class Logger {
         return result;
     }
 
+    private fileLogging(categories: LoggerCategories[], uid: number, msg: string, format?: (msg: string) => string): void {
+        let alreadyLoggedToConsole = false;
+        let alreadyLoggedFileSet = new Set() as Set<string>;
+        msg = `[${mfc.Model.getModel(uid).nm} (${uid})] ${msg}`;
+        categories.forEach((category) => {
+            let tempLogSets = this.tempLogSets.get(LoggerCategories[category]).has(uid) ? this.tempLogSets.get(LoggerCategories[category]).get(uid) : new Set() as Set<string>;
+            let permaLogSets = this.logSets.get(LoggerCategories[category]).has(uid) ? this.logSets.get(LoggerCategories[category]).get(uid) : new Set() as Set<string>;
+            let fullLogSet = new Set([...tempLogSets, ...permaLogSets]);
+            fullLogSet.forEach((file) => {
+                if (!alreadyLoggedFileSet.has(file)) {
+                    if (!alreadyLoggedToConsole) { // Only log each message to the console once
+                        if (format !== null) {
+                            alreadyLoggedToConsole = true;
+                        }
+                        mfc.log(msg, file, format);
+                    } else {
+                        // @TODO - This is the non-console part of MFCAuto.log, maybe I should expose
+                        // something in MFCAuto to retrieve the tagged message rather than duplicating code here.
+                        let toStr = (n: number): string => { return n < 10 ? "0" + n : "" + n; };
+                        let d = new Date();
+                        let taggedMsg = "[" + (toStr(d.getMonth() + 1)) + "/" + (toStr(d.getDate())) + "/" + (d.getFullYear()) + " - " + (toStr(d.getHours())) + ":" + (toStr(d.getMinutes())) + ":" + (toStr(d.getSeconds()))/* + "." + (d.getMilliseconds())*/;
+                        if (file !== undefined) {
+                            taggedMsg += (", " + file.toUpperCase() + "] " + msg);
+                        } else {
+                            taggedMsg += ("] " + msg);
+                        }
+                        let fd = fs.openSync(file + ".txt", "a");
+                        fs.writeSync(fd, taggedMsg + "\r\n");
+                        fs.closeSync(fd);
+                    }
+                    alreadyLoggedFileSet.add(file);
+                }
+            });
+        });
+    }
+
     // Enters the given model's chat room if we're not already in it
-    private joinRoom(model: MyFreeCams.Model) {
+    private joinRoom(model: mfc.Model) {
         if (!this.joinedRooms.has(model.uid)) {
-            log(`Joining room for ${model.nm}`, model.nm);
+            this.fileLogging(this.joinRoomCategories, model.uid, `Joining room for ${model.nm}`);
             this.client.joinRoom(model.uid);
             this.joinedRooms.add(model.uid);
         }
     }
 
     // Leaves the given model's chat room, if we're in it
-    private leaveRoom(model: MyFreeCams.Model) {
+    private leaveRoom(model: mfc.Model) {
         if (this.joinedRooms.has(model.uid)) {
-            log(`Leaving room for ${model.nm}`, model.nm);
+            this.fileLogging(this.joinRoomCategories, model.uid, `Leaving room for ${model.nm}`);
             this.client.leaveRoom(model.uid);
             this.joinedRooms.delete(model.uid);
         }
     }
-    private chatLogger(packet: MyFreeCams.Packet) {
-        if (this.inCategories(packet.aboutModel, [LoggerCategories.chat, LoggerCategories.all]) && packet.chatString !== undefined) {
-            log(packet.chatString, packet.aboutModel.nm, this.chatFormat);
+    private chatLogger(packet: mfc.Packet) {
+        let categories = [LoggerCategories.chat, LoggerCategories.all];
+        if (this.inCategories(packet.aboutModel, categories) && packet.chatString !== undefined) {
+            this.fileLogging(categories, packet.aboutModel.uid, packet.chatString, this.chatFormat);
         }
     }
-    private tipLogger(packet: MyFreeCams.Packet) {
-        if (this.inCategories(packet.aboutModel, [LoggerCategories.tips, LoggerCategories.all, LoggerCategories.nochat]) && packet.chatString !== undefined) {
-            let msg = packet.sMessage as MyFreeCams.FCTokenIncResponse;
-            let format = this.tinyTip;
-            if (msg.tokens >= 50) {
-                format = this.smallTip;
-            }
-            if (msg.tokens >= 200) {
-                format = this.mediumTip;
-            }
-            if (msg.tokens >= 1000) {
-                format = this.largeTip;
-            }
-            log(packet.chatString, packet.aboutModel.nm, format);
+    private tipLogger(packet: mfc.Packet) {
+        let categories = [LoggerCategories.tips, LoggerCategories.all, LoggerCategories.nochat];
+        if (this.inCategories(packet.aboutModel, categories) && packet.chatString !== undefined) {
+            let msg = packet.sMessage as mfc.FCTokenIncResponse;
+
+            // Calculate the yellow intensity of the current tip on a scale of 0x20 Red+Green to 0xFF Red+Green,
+            // maxing out at 1000 tokens.
+            let minYellowIntensity = 0x20, maxYellowIntensity = 0xFF, maxIntensityTip = 1000;
+            let tipSteps = maxIntensityTip / (maxYellowIntensity - minYellowIntensity);
+            let tipIntensity = Math.min(minYellowIntensity + (Math.floor(msg.tokens / tipSteps)), maxYellowIntensity);
+
+            this.fileLogging(categories, packet.aboutModel.uid, packet.chatString, chalk.black.bgRgb(tipIntensity, tipIntensity, 0));
         }
     }
     private durationToString(duration: moment.Duration): string {
@@ -255,11 +312,12 @@ export class Logger {
         }
         return `${pad(Math.floor(duration.asHours()))}:${pad(duration.minutes())}:${pad(duration.seconds())}`;
     }
-    private stateLogger(model: MyFreeCams.Model, oldState: MyFreeCams.FCVIDEO, newState: MyFreeCams.FCVIDEO) {
+    private stateLogger(model: mfc.Model, oldState: mfc.FCVIDEO, newState: mfc.FCVIDEO) {
         let now = moment();
+        let categories = [LoggerCategories.state, LoggerCategories.all, LoggerCategories.nochat];
 
         // If a model has gone offline
-        if (newState === MyFreeCams.FCVIDEO.OFFLINE) {
+        if (newState === mfc.FCVIDEO.OFFLINE) {
             // Indicate that we are not in her room, so that
             // we'll issue another joinroom request when she logs back on
             // but don't actually leave her room (via leaveRoom())
@@ -271,27 +329,28 @@ export class Logger {
             }
         }
 
-        if (this.inCategories(model, [LoggerCategories.state, LoggerCategories.all, LoggerCategories.nochat])) {
-            let statestr = MyFreeCams.STATE[model.bestSession.vs];
-            if (model.bestSession.truepvt === 1 && model.bestSession.vs === MyFreeCams.STATE.Private) {
+        if (this.inCategories(model, categories)) {
+            let statestr = mfc.STATE[model.bestSession.vs];
+            if (model.bestSession.truepvt === 1 && model.bestSession.vs === mfc.STATE.Private) {
                 statestr = "True Private";
             }
-            if (model.bestSession.truepvt === 0 && model.bestSession.vs === MyFreeCams.STATE.Private) {
+            if (model.bestSession.truepvt === 0 && model.bestSession.vs === mfc.STATE.Private) {
                 statestr = "Regular Private";
             }
             if (this.previousStates.has(model.uid)) {
                 let lastState = this.previousStates.get(model.uid);
                 let duration = moment.duration(now.valueOf() - lastState.lastStateMoment.valueOf());
                 // let onOffDuration = moment.duration(now.valueOf() - lastState.lastStateMoment.valueOf()); @TODO - Do something with on/off durations ala JoinMFC
-                log(`${model.nm} is now in state ${statestr} after ${this.durationToString(duration)} in ${lastState.lastStateStr}`, model.nm, this.basicFormat);
+                this.fileLogging(categories, model.uid, `${model.nm} is now in state ${statestr} after ${this.durationToString(duration)} in ${lastState.lastStateStr}`, this.basicFormat);
             } else {
-                log(`${model.nm} is now in state ${statestr}`, model.nm, this.basicFormat);
+                this.fileLogging(categories, model.uid, `${model.nm} is now in state ${statestr}`, this.basicFormat);
             }
-            this.previousStates.set(model.uid, { lastStateStr: statestr, lastStateMoment: now, lastOnOffMoment: (oldState === MyFreeCams.FCVIDEO.OFFLINE || newState === MyFreeCams.FCVIDEO.OFFLINE) ? now : this.previousStates.get(model.uid).lastOnOffMoment });
+            this.previousStates.set(model.uid, { lastStateStr: statestr, lastStateMoment: now, lastOnOffMoment: (oldState === mfc.FCVIDEO.OFFLINE || newState === mfc.FCVIDEO.OFFLINE) ? now : this.previousStates.get(model.uid).lastOnOffMoment });
         }
     }
-    private rankLogger(model: MyFreeCams.Model, oldState: number | string, newState: number | string) {
-        if (this.inCategories(model, [LoggerCategories.rank, LoggerCategories.all, LoggerCategories.nochat])) {
+    private rankLogger(model: mfc.Model, oldState: number | string, newState: number | string) {
+        let categories = [LoggerCategories.rank, LoggerCategories.all, LoggerCategories.nochat];
+        if (this.inCategories(model, categories)) {
             if (oldState !== undefined) { // Ignore the initial rank setting, just because it can be *very* noisy with thousands of girls online
                 let format = newState > oldState ? this.rankDown : this.rankUp;
                 if (oldState === 0) {
@@ -303,33 +362,35 @@ export class Logger {
                     format = this.rankDown;
                 }
 
-                log(`${model.nm} has moved from rank ${oldState} to rank ${newState}`, model.nm, format);
-                log(`${model.nm} has moved from rank ${oldState} to rank ${newState}`, "RANK_UPDATES", null); // @BUGBUG - @TODO - Did I break this?  A null formatter was meant to indicate not to log anything to the console....
+                this.fileLogging(categories, model.uid, `${model.nm} has moved from rank ${oldState} to rank ${newState}`, format);
             }
         }
     }
-    private topicLogger(model: MyFreeCams.Model, oldState: string, newState: string) {
-        if (this.inCategories(model, [LoggerCategories.topic, LoggerCategories.all, LoggerCategories.nochat])) {
-            log(`TOPIC: ${newState}`, model.nm, this.topicFormat);
+    private topicLogger(model: mfc.Model, oldState: string, newState: string) {
+        let categories = [LoggerCategories.topic, LoggerCategories.all, LoggerCategories.nochat];
+        if (this.inCategories(model, categories)) {
+            this.fileLogging(categories, model.uid, `TOPIC: ${newState}`, this.topicFormat);
         }
     }
-    private camscoreLogger(model: MyFreeCams.Model, oldState: string, newState: string) {
-        if (this.inCategories(model, [LoggerCategories.camscore, LoggerCategories.all, LoggerCategories.nochat])) {
+    private camscoreLogger(model: mfc.Model, oldState: string, newState: string) {
+        let categories = [LoggerCategories.camscore, LoggerCategories.all, LoggerCategories.nochat]
+        if (this.inCategories(model, categories)) {
             let format = newState > oldState || oldState === undefined ? this.rankUp : this.rankDown;
-            log(`${model.nm}'s camscore is now ${newState}`, model.nm, format);
+            this.fileLogging(categories, model.uid, `${model.nm}'s camscore is now ${newState}`, format);
         }
     }
-    private viewerLogger(packet: MyFreeCams.Packet) {
-        if (this.inCategory(packet.aboutModel, LoggerCategories.viewers)) {
-            if (packet.FCType === MyFreeCams.FCTYPE.GUESTCOUNT) {
-                log(`Guest viewer count is now ${packet.nArg1}`, packet.aboutModel.nm);
+    private viewerLogger(packet: mfc.Packet) {
+        let categories = [LoggerCategories.viewers];
+        if (this.inCategories(packet.aboutModel, categories)) {
+            if (packet.FCType === mfc.FCTYPE.GUESTCOUNT) {
+                this.fileLogging(categories, packet.aboutModel.uid, `Guest viewer count is now ${packet.nArg1}`);
                 return;
             }
 
             // Otherwise this packet must be a JOINCHAN, a notification of a member (whether basic or premium) entering or leaving the room
-            let msg = packet.sMessage as MyFreeCams.Message;
+            let msg = packet.sMessage as mfc.Message;
             switch (packet.nArg2) {
-                case MyFreeCams.FCCHAN.JOIN:
+                case mfc.FCCHAN.JOIN:
                     // Add this session to our user mappings
                     if (!this.userSessionsToIds.has(msg.sid) || this.userSessionsToIds.get(msg.sid) !== msg.uid) {
                         this.userSessionsToIds.set(msg.sid, msg.uid);
@@ -338,15 +399,15 @@ export class Logger {
                     if (!this.userIdsToNames.has(msg.uid) || this.userIdsToNames.get(msg.uid) !== msg.nm) {
                         this.userIdsToNames.set(msg.uid, msg.nm);
                     }
-                    log(`${msg.nm} (id: ${packet.nFrom}, level: ${MyFreeCams.FCLEVEL[msg.lv]}) joined the room.`, packet.aboutModel.nm);
+                    this.fileLogging(categories, packet.aboutModel.uid, `${msg.nm} (id: ${packet.nFrom}, level: ${mfc.FCLEVEL[msg.lv]}) joined the room.`);
                     break;
-                case MyFreeCams.FCCHAN.PART: // The user left the channel, for this we get no sMessage, but nFrom will be that user's session id (NOT their user id)
+                case mfc.FCCHAN.PART: // The user left the channel, for this we get no sMessage, but nFrom will be that user's session id (NOT their user id)
                     if (this.userSessionsToIds.has(packet.nFrom)) {
                         let uid = this.userSessionsToIds.get(packet.nFrom);
-                        log(`${this.userIdsToNames.get(uid)} (id: ${uid}) left the room.`, packet.aboutModel.nm);
+                        this.fileLogging(categories, packet.aboutModel.uid, `${this.userIdsToNames.get(uid)} (id: ${uid}) left the room.`);
                     } else {
                         // This is very noisy and not so useful, so ignore users we don't know names for, for now
-                        // log(`Unknown user with session id ${packet.nFrom} left the room.`, packet.aboutModel.nm);
+                        // this.fileLogging(packet.aboutModel.uid, `Unknown user with session id ${packet.nFrom} left the room.`);
                     }
                     break;
                 default:
@@ -354,14 +415,16 @@ export class Logger {
             }
         }
     }
-    private rcLogger(model: MyFreeCams.Model, before: number, after: number) {
-        if (this.inCategory(model, LoggerCategories.viewers)) {
-            log(`Total viewer count is now ${after}`, model.nm);
+    private rcLogger(model: mfc.Model, before: number, after: number) {
+        let categories = [LoggerCategories.viewers];
+        if (this.inCategories(model, categories)) {
+            this.fileLogging(categories, model.uid, `Total viewer count is now ${after}`);
         }
     }
 
     // Ignore this, it's most likely not useful to you and not used by you...
     private doSqlite3(sqliteDBName: string) {
+        let sqlite3 = require("sqlite3");
         let createSchema = false;
         if (!fs.existsSync(sqliteDBName)) {
             createSchema = true;
@@ -379,16 +442,16 @@ export class Logger {
         });
 
         // Set up a sessionstate callback, which will record all the model IDs
-        this.client.on("SESSIONSTATE", (packet: MyFreeCams.Packet) => {
+        this.client.on("SESSIONSTATE", (packet: mfc.Packet) => {
             let id = packet.nArg2;
-            let obj = packet.sMessage as MyFreeCams.Message;
+            let obj = packet.sMessage as mfc.Message;
             if (obj !== undefined && obj.nm !== undefined) {
-                database.get("SELECT modid, name, preferred FROM ids WHERE modid=? and name=?", [id, obj.nm], (err, row) => {
+                database.get("SELECT modid, name, preferred FROM ids WHERE modid=? and name=?", [id, obj.nm], (err: Error, row: any) => {
                     if (err) {
                         throw err;
                     }
                     if (row === undefined) { // We've not seen this name for this model before
-                        database.get("SELECT modid, name, preferred FROM ids WHERE modid=? AND preferred=1", [id], (err2, row2) => {
+                        database.get("SELECT modid, name, preferred FROM ids WHERE modid=? AND preferred=1", [id], (err2: Error, row2: any) => {
                             if (err2) {
                                 throw err2;
                             }

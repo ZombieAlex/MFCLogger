@@ -1,4 +1,4 @@
-import * as MyFreeCams from "MFCAuto";
+import * as mfc from "MFCAuto";
 export declare enum LoggerCategories {
     all = 0,
     nochat = 1,
@@ -13,7 +13,8 @@ export declare enum LoggerCategories {
 export interface LoggerSelector {
     id?: number;
     what: LoggerCategories[];
-    when?: (m: MyFreeCams.Model) => boolean;
+    when?: (m: mfc.Model) => boolean;
+    where?: string;
 }
 export declare class Logger {
     private logSets;
@@ -22,21 +23,22 @@ export declare class Logger {
     private previousStates;
     private userSessionsToIds;
     private userIdsToNames;
+    private joinRoomCategories;
     private client;
     private ready;
     private basicFormat;
     private chatFormat;
     private topicFormat;
-    private tinyTip;
-    private smallTip;
-    private mediumTip;
-    private largeTip;
     private rankUp;
     private rankDown;
-    constructor(client: MyFreeCams.Client, selectors: LoggerSelector[], sqliteDBName: string, ready: (l: Logger) => void);
+    constructor(client: mfc.Client, selectors: LoggerSelector[], sqliteDBName: string, ready: (l: Logger) => void);
+    private addTempLogging(category, m, filename);
+    private removeTempLogging(category, m, filename);
+    private addPermaLogging(category, m, filename);
     private shouldJoinRoom(model);
     private inCategory(model, category);
     private inCategories(model, categories);
+    private fileLogging(categories, uid, msg, format?);
     private joinRoom(model);
     private leaveRoom(model);
     private chatLogger(packet);

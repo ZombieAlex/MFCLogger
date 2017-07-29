@@ -1,22 +1,23 @@
 {
   "name": "MFCLogger",
-  "version": "3.3.0",
+  "version": "4.0.0",
   "description": "Simplifies logging MFC chat or status changes to the console and log files",
   "main": "lib/MFCLogger.js",
   "typings": "lib/MFCLogger",
   "dependencies": {
-    "MFCAuto": "ZombieAlex/MFCAuto",
-    "cli-color": "^1.2.0",
-    "moment": "^2.17.1",
-    "sqlite3": "^3.1.8"
+    "MFCAuto": "github:ZombieAlex/MFCAuto",
+    "chalk": "^2.0.1",
+    "moment": "^2.18.1",
+    "sqlite3": "^3.1.8",
+    "supports-color": "^4.2.1"
   },
   "devDependencies": {
     "@types/cli-color": "^0.3.29",
-    "@types/es6-shim": "^0.31.32",
     "@types/moment": "^2.13.0",
-    "@types/node": "^7.0.5",
-    "@types/sqlite3": "^2.2.32",
-    "typescript": "^2.2.1"
+    "@types/node": "^8.0.17",
+    "@types/sqlite3": "^3.1.0",
+    "@types/supports-color": "^3.1.0",
+    "typescript": "^2.4.2"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
