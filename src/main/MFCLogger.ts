@@ -31,7 +31,7 @@ export interface LoggerSelector {
     id?: number; // When not given, what applies to all models
     what: LoggerCategories[];
     when?: (m: mfc.Model) => boolean; // When not given, when is equivalent to (m) => true
-    where?: string; // What log file to log into, if not specified, a log file matching the model's current name will be used. Set to null for no file logging, only console
+    where?: string; // What log file to log into, if not specified, a log file matching the model's current name will be used
 }
 
 export class Logger {
@@ -345,7 +345,7 @@ export class Logger {
             } else {
                 this.fileLogging(categories, model.uid, `${model.nm} is now in state ${statestr}`, this.basicFormat);
             }
-            this.previousStates.set(model.uid, { lastStateStr: statestr, lastStateMoment: now, lastOnOffMoment: (oldState === mfc.FCVIDEO.OFFLINE || newState === mfc.FCVIDEO.OFFLINE) ? now : this.previousStates.get(model.uid).lastOnOffMoment });
+            this.previousStates.set(model.uid, { lastStateStr: statestr, lastStateMoment: now, lastOnOffMoment: (oldState === mfc.FCVIDEO.OFFLINE || newState === mfc.FCVIDEO.OFFLINE || !this.previousStates.has(model.uid)) ? now : this.previousStates.get(model.uid).lastOnOffMoment });
         }
     }
     private rankLogger(model: mfc.Model, oldState: number | string, newState: number | string) {
