@@ -1,9 +1,9 @@
-#MFCLogger.js
+# MFCLogger.js
 Simplifies logging MFC chat or status changes to the console and log files.  And provides a flexible set of options for specifying what to log for which model. This module requires MFCAuto separately as it takes an MFCAuto Client object as a constructor parameter.
 
 All logs will be printed to the console, with color coding, and to separate log files in the local directory for each model. So depending on the options you pass to it, be prepared for a lot of text files to be created in the local folder.
 
-##Example
+## Example
 This exists in the repo as src/test/test.js. Feel free to run it from there.
 
 ```javascript
@@ -34,7 +34,7 @@ new Logger(client, options);
 client.connect();
 ```
 
-##Options
+## Options
 Options should be an array of LoggerSelector elements as defined in TypeScript below. Models are selected via their ID directly or a filter function. When using a filter function, logging will start for the model when she matches the filter and stop when she ceases matching the filter.
 
 ```typescript
