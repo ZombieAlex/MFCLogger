@@ -16,7 +16,7 @@ let Logger = lgr.Logger;
 let cat = lgr.LoggerCategories;
 
 let options = [
-    // Log everything for AspenRae and MissMolly to files names after them
+    // Log everything for AspenRae and MissMolly to files named after them
     { id: 3111899, what: [cat.all] },
     { id: 11972850, what: [cat.all] },
     // Log camscore and rank for CrazyM to a file named after her, but only when she has more than 500 viewers in her room
