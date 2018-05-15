@@ -399,7 +399,7 @@ export class Logger {
                     if (!this.userIdsToNames.has(msg.uid) || this.userIdsToNames.get(msg.uid) !== msg.nm) {
                         this.userIdsToNames.set(msg.uid, msg.nm);
                     }
-                    this.fileLogging(categories, packet.aboutModel.uid, `${msg.nm} (id: ${packet.nFrom}, level: ${mfc.FCLEVEL[msg.lv]}) joined the room.`);
+                    this.fileLogging(categories, packet.aboutModel.uid, `${msg.nm} (id: ${msg.uid}, level: ${mfc.FCLEVEL[msg.lv]}) joined the room.`);
                     break;
                 case mfc.FCCHAN.PART: // The user left the channel, for this we get no sMessage, but nFrom will be that user's session id (NOT their user id)
                     if (this.userSessionsToIds.has(packet.nFrom)) {
