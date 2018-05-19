@@ -3,6 +3,16 @@ Simplifies logging MFC chat or status changes to the console and log files.  And
 
 All logs will be printed to the console, with color coding, and to separate log files in the local directory for each model. So depending on the options you pass to it, be prepared for a lot of text files to be created in the local folder.
 
+## Setup
+**This package requires MFCAuto, which is no longer available on GitHub, as a peer dependency.**
+
+```bash
+# From wherever you have it or can find it...
+$ npm install MFCAuto
+# Then...
+$ npm install ZombieAlex/MFCLogger
+```
+
 ## Example
 This exists in the repo as src/test/test.js. Feel free to run it from there.
 
@@ -21,13 +31,15 @@ let options = [
     { id: 11972850, what: [cat.all] },
     // Log camscore and rank for CrazyM to a file named after her, but only when she has more than 500 viewers in her room
     { id: 4585086, what: [cat.camscore, cat.rank], when: (m) => m.bestSession.rc > 500 },
+    // Log state changes for models in the top 10 to STATES.txt
+    { what: [cat.state], when: (m) => m.bestSession.rank !== 0 && m.bestSession.rank <= 10, where: "STATES.txt" },
     // Log only rank changes for models in the top 1000 to RANK.txt
-    { what: [cat.rank], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0, where: "RANK" },
+    { what: [cat.rank], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0, where: "RANK.txt" },
     // Log only tips received for models in the top 60 to TIPS.txt
-    { what: [cat.tips], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0 && m.bestSession.rank <= 60, where: "TIPS" },
+    { what: [cat.tips], when: (m) => m.bestSession.rank !== undefined && m.bestSession.rank !== 0 && m.bestSession.rank <= 60, where: "TIPS.txt" },
     // Log only topic changes for models with 'athletic' in their tags or models with 'raffle' in their topic to ATHLETIC.txt and RANK.txt
-    { what: [cat.topic], when: (m) => m.tags.findIndex((value) => /athletic/i.test(value)) !== -1, where: "ATHLETIC" },
-    { what: [cat.topic], when: (m) => /raffle/i.test(m.bestSession.topic), where: "RAFFLES" }
+    { what: [cat.topic], when: (m) => m.tags.findIndex((value) => /athletic/i.test(value)) !== -1, where: "ATHLETIC.txt" },
+    { what: [cat.topic], when: (m) => /raffle/i.test(m.bestSession.topic), where: "RAFFLES.txt" }
 ];
 
 new Logger(client, options);
