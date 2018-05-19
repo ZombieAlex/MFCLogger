@@ -10,6 +10,9 @@
     "sqlite3": "^4.0.0",
     "supports-color": "^5.4.0"
   },
+  "peerDependencies": {
+    "MFCAuto": "^5.2.0"
+  },
   "devDependencies": {
     "@types/cli-color": "^0.3.29",
     "@types/node": "^10.1.2",
